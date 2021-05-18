@@ -1,0 +1,61 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  module_defaults:
+    community.kubernetes.k8s_auth:
+      host: "{{ lookup('env', 'K8S_API') }}"
+      validate_certs: false
+
+    community.kubernetes.k8s_info:
+      host: "{{ lookup('env', 'K8S_API') }}"
+      validate_certs: false
+
+    community.kubernetes.k8s:
+      host: "{{ lookup('env', 'K8S_API') }}"
+      validate_certs: false
+
+  tasks:
+  - name: k8s - get kubernetes auth token
+    community.kubernetes.k8s_auth:
+      username: "{{ lookup('env', 'K8S_API_USERNAME') }}"
+      password: "{{ lookup('env',' K8S_API_PASSWORD') }}"
+    register: k8s_auth_results
+
+  - set_fact:
+      api_key: "{{ k8s_auth_results.k8s_auth.api_key }}"
+
+  - name: check - expected users - get list of all RoleBindings in the namespace
+    community.kubernetes.k8s_info:
+      api_key: "{{ api_key }}"
+      api_version: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      namespace: "{{ k8s_namespace }}"
+    register: rolebindings
+
+  - set_fact:
+      actual_users: "{{ rolebindings.resources | json_query(query)}}"
+    vars:
+      query: "[].subjects[?kind=='User'].name[]"
+
+  - name: check - expected users - fail if there are users in the list that we don't expect
+    fail:
+      msg: "Unexpected users in project: {{ unexpected_users }}"
+    vars:
+      unexpected_users: "{{ actual_users | difference(expected_users) }}"
+    when:
+      - unexpected_users | length > 0
+
+  - name: check - ensure tls routes - fetch Routes in project
+    community.kubernetes.k8s_info:
+      api_key: "{{ api_key }}"
+      api_version: 'route.openshift.io/v1'
+      kind: Route
+      namespace: "{{ k8s_namespace }}"
+    register: routes
+
+  - name: check - ensure tls routes - fail if any routes do not have TLS sections configured
+    fail:
+      msg: "Route {{ item.metadata.name }} is non-TLS secured"
+    loop: "{{ routes.resources }}"
+    when:
+      - item.spec.tls is not defined
