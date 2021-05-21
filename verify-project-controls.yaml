@@ -44,7 +44,7 @@
       unexpected: "{{ actual_users | difference(expected_users) }}"
       missing: "{{ expected_users | difference(actual_users) }}"
     when:
-      - unexpected_users | length > 0
+      - ( unexpected | length > 0 ) or ( missing | length > 0 )
 
   - name: check - ensure tls routes - fetch Routes in project
     community.kubernetes.k8s_info:
