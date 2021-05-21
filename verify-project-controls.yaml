@@ -37,11 +37,12 @@
     vars:
       query: "[].subjects[?kind=='User'].name[]"
 
-  - name: check - expected users - fail if there are users in the list that we don't expect
+  - name: check - expected users - fail if user list doesn't match expected users
     fail:
-      msg: "Unexpected users in project: {{ unexpected_users }}"
+      msg: "User list mismatch. Expected: {{ expected_users }}, Actual: {{ actual_users }}, Missing: {{ missing }}, Unexpected: {{ unexpected }}"
     vars:
-      unexpected_users: "{{ actual_users | difference(expected_users) }}"
+      unexpected: "{{ actual_users | difference(expected_users) }}"
+      missing: "{{ expected_users | difference(actual_users) }}"
     when:
       - unexpected_users | length > 0
 
