@@ -58,5 +58,7 @@
     fail:
       msg: "Route {{ item.metadata.name }} is non-TLS secured"
     loop: "{{ routes.resources }}"
+    loop_control:
+      label: "{{ item.metadata.name }}"
     when:
       - item.spec.tls is not defined
